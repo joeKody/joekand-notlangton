@@ -2,9 +2,9 @@
 #include <string.h>
 #include <time.h>
 
-int title_screen(void);
+long long title_screen(void);
 
-int run_ant(int limit);
+int run_ant(long long limit);
 
 int main(int argc, char * * argv)
 {
@@ -14,8 +14,10 @@ int main(int argc, char * * argv)
 	noecho();
 // ---- MAIN ----
 	{
-		int generations = title_screen();
+		long generations = title_screen();
 		int err = run_ant(generations);
+
+		erase();
 		if (err != 0)
 			mvprintw(1, 1, "Something went wrong: errcode(%d)", err);
 		else
@@ -27,48 +29,65 @@ int main(int argc, char * * argv)
 	return 0;
 }
 
-int title_screen(void)
+long long title_screen(void)
 {
 	int rows, cols;
 	getmaxyx(stdscr, rows, cols);
 	
-	char * big_title[5] = {
-		"#####       ##### #  #       ###  #   # #####",
-		"  #    ###  #     # #       #   # ##  #   #",
-		"  #   #   # ####  ## #      ##### # # #   #",
-		"# #   #   # #     #  #      #   # #  ##   #",
-		"###    ###  ##### #   #     #   # #   #   #"
-	};
+	char * big_title[] = {
+		"#####       ##### #  #      ###  #   # #####",
+		"  #    ###  #     # #      #   # ##  #   #",
+		"  #   #   # ####  ## #     ##### # # #   #",
+		"# #   #   # #     #  #     #   # #  ##   #",
+		"###    ###  ##### #   #    #   # #   #   #"
+	};	// pretty scuffed lmao, 42 in length btw 
+
+	char * mid_title[] = {
+		"###    ## # #   ##  ##  # ###",
+		" #  ## #= ##   #__# # # #  #",
+		"##  ## ## # #  #  # #  ##  #"
+	};	// 28 in length
 	
-	// MENU BOX
-	WINDOW * menubox = newwin(rows/1.5, cols/1.5, rows/2 - rows/3, cols/2 - cols/3);
-	box(menubox, 0, 0);
+	// TITLE
+	if (rows >= 13 && cols >= 44){
+		attrset(A_BOLD);
+		for (int i = 0; i < 5; i++)
+			mvprintw(i + 1, 1, "%s", big_title[i]);
+	} else if (rows >= 11 && cols >= 30){
+		attrset(A_BOLD);
+		for (int i = 0; i < 3; i++)
+			mvprintw(i + 1, 1, "%s", mid_title[i]);
+	} else {
+		attrset(A_STANDOUT);
+		mvprintw(1, 1, "JoeK ANT");
+	}
 
-	wattron(menubox, A_BOLD); // TITLE
-	for (int i = 0; i < 5; i++)
-		mvwprintw(menubox, 2+i, 20, "%s", big_title[i]);
-	wattroff(menubox, A_BOLD);
-
-	mvwprintw(menubox, 8, 20, "\"Definitely not a Langton's ant ripoff.\"");
-	mvwprintw(menubox, 9, 53, "- me(joe)");
-	mvwprintw(menubox, 12, 20, "How many generations do you want to run?");
+	attrset(A_NORMAL);
+	int y, x;
+	getyx(stdscr, y, x);
+	y++;
 	
-	// MENU
-	int result;
+	mvprintw(++y, 1, "Controls: ");
+	attrset(A_STANDOUT);
+	mvprintw(++y, 1, "(ctrl + c), c, q, x = quit");
+	mvprintw(++y, 1,"g = slowdown");
+	mvprintw(++y, 1,"h = speedup");
+	attrset(A_NORMAL);
+	y++;
+	mvprintw(++y, 1, "How many generations to run(int): ");
 
-	mvwprintw(menubox, 13, 20, "Answer in positive integers: ");
+	long long result;
+	char newline;
 	echo();
-	wscanw(menubox, "%d", &result);	
+	scanw("%lld%c", &result, newline);
+	if (newline == '\n' || result < 1)
+		return -1;
 	noecho();
-
-	wrefresh(menubox);
-
-	//wgetch(menubox);
-
+	refresh();
 	return result;
 }
 
-int run_ant(int limit)
+int run_ant(long long limit)
 {
 	int rows, cols;
 	getmaxyx(stdscr, rows, cols);
@@ -85,8 +104,11 @@ int run_ant(int limit)
 	WINDOW * antscreen = newwin(rows, cols, 0, 0);
 	box(antscreen, 0, 0);
 
-	wtimeout(antscreen, 1);
-	for (int current = 0; current < limit; current++)
+	int speed = 100;
+	int gen_speed = 1;
+	curs_set(0);
+	wtimeout(antscreen, speed);
+	for (int current = 0; current < limit; current+=gen_speed)
 	{
 		for (int y = 0; y < rows-2; y++)
 		{
@@ -101,56 +123,41 @@ int run_ant(int limit)
 				mvwaddch(antscreen, y + 1, x + 1, ' ');
 			}
 		}
+		for (int j = 0; j < gen_speed; j++)
+		{	
+			if (ant_grid[ant_y][ant_x] == 0)
+			{
+				ant_grid[ant_y][ant_x] = 1;
+				ant_state++;
+				if (ant_state > 3)
+					ant_state = 0;
+			}
+			else if (ant_grid[ant_y][ant_x] == 1)
+			{
+				ant_grid[ant_y][ant_x] = 0;
+				ant_state--;
+				if (ant_state < 0)
+					ant_state = 3;
+			}
 
-		if (ant_grid[ant_y][ant_x] == 0)
-		{
-			ant_grid[ant_y][ant_x] = 1;
-			ant_state++;
-			if (ant_state > 3)
-				ant_state = 0;
-		}
-		else if (ant_grid[ant_y][ant_x] == 1)
-		{
-			ant_grid[ant_y][ant_x] = 0;
-			ant_state--;
-			if (ant_state < 0)
-				ant_state = 3;
-		}
-
-
-		if (ant_grid[ant_y][ant_x] == 1)
-			wattrset(antscreen, A_REVERSE);
-		else if (ant_grid[ant_y][ant_x] == 0)
-			wattrset(antscreen, A_NORMAL);
-		else
-		{
-			mvprintw(5, 6, "y, x = %d, %d", ant_y, ant_x);
-			mvprintw(6, 6, "the grid = %d", ant_grid[ant_y][ant_x]);
-			getch();
-			return -1;
-		}
-				
-		switch (ant_state)
-		{
-			case 0:
-				mvwaddch(antscreen, ant_y + 1, ant_x + 1, '^');
-				ant_y++;
-				break;
-			case 1:
-				mvwaddch(antscreen, ant_y + 1, ant_x + 1, '>');
-				ant_x++;
-				break;
-			case 2:
-				mvwaddch(antscreen, ant_y + 1, ant_x + 1, 'V');
-				ant_y--;
-				break;
-			case 3:
-				mvwaddch(antscreen, ant_y + 1, ant_x + 1, '<');
-				ant_x--;
-				break;
-			default:
-				return -2;
-		}
+			switch (ant_state)
+			{
+				case 0:
+					ant_y++;
+					break;
+				case 1:
+					ant_x++;
+					break;
+				case 2:
+					ant_y--;
+					break;
+				case 3:
+					ant_x--;
+					break;
+				default:
+					return -2;
+			}
+		
 
 		if (ant_y >= rows-3)
 			ant_y = 0;
@@ -162,15 +169,38 @@ int run_ant(int limit)
 		else if (ant_x <= 0)
 			ant_x = cols-3;
 		
+		}
+
+		wattrset(antscreen, A_STANDOUT);
+		mvwprintw(antscreen, 3, 1, "Generation: %d", current+1);
+		mvwprintw(antscreen, 1, 1, "Speed = %d", speed);
+		mvwprintw(antscreen, 2, 1, "GenSpeed = %d", gen_speed);
+		wattrset(antscreen, A_NORMAL);
+		
 		switch (wgetch(antscreen))
 		{
 			case 'x':
 				return 0;
 				break;
-			case 'X':
+			case 'q':
 				return 0;
 				break;
-			case 's':
+			case 'c':
+				return 0;
+				break;
+			case 'g':
+				if (gen_speed != 1)
+					gen_speed /= 2;
+				else if (speed <= 4000)
+					speed *= 2;
+				wtimeout(antscreen, speed);
+				break;
+			case 'h':
+				if (speed >= 3)
+					speed /= 2;
+				else if (gen_speed <= 400096) 
+					gen_speed *= 2;
+				wtimeout(antscreen, speed);
 				break;
 			default:
 				break;
