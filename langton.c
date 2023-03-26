@@ -12,7 +12,11 @@ int main(int argc, char * * argv)
 	initscr();
 	cbreak();
 	noecho();
+	if (has_colors())
+		start_color();
+	
 // ---- MAIN ----
+	for (;;)
 	{
 		long generations = title_screen();
 		int err = run_ant(generations);
@@ -21,8 +25,9 @@ int main(int argc, char * * argv)
 		if (err != 0)
 			mvprintw(1, 1, "Something went wrong: errcode(%d)", err);
 		else
-			mvprintw(1, 1, "Press any key to exit...");
-		getch();
+			mvprintw(1, 1, "Press q to exit...");
+		if (getch() == 'q')
+			break;
 	}
 // ---- DNIT ----
 	endwin();
@@ -49,11 +54,11 @@ long long title_screen(void)
 	};	// 28 in length
 	
 	// TITLE
-	if (rows >= 13 && cols >= 44){
+	if (rows >= 14 && cols >= 44){
 		attrset(A_BOLD);
 		for (int i = 0; i < 5; i++)
 			mvprintw(i + 1, 1, "%s", big_title[i]);
-	} else if (rows >= 11 && cols >= 30){
+	} else if (rows >= 12 && cols >= 30){
 		attrset(A_BOLD);
 		for (int i = 0; i < 3; i++)
 			mvprintw(i + 1, 1, "%s", mid_title[i]);
@@ -72,6 +77,7 @@ long long title_screen(void)
 	mvprintw(++y, 1, "(ctrl + c), c, q, x = quit");
 	mvprintw(++y, 1,"g = slowdown");
 	mvprintw(++y, 1,"h = speedup");
+	mvprintw(++y, 1,"s = toggle show information");
 	attrset(A_NORMAL);
 	y++;
 	mvprintw(++y, 1, "How many generations to run(int): ");
@@ -104,6 +110,7 @@ int run_ant(long long limit)
 	WINDOW * antscreen = newwin(rows, cols, 0, 0);
 	box(antscreen, 0, 0);
 
+	int show = 1;
 	int speed = 100;
 	int gen_speed = 1;
 	curs_set(0);
@@ -171,12 +178,15 @@ int run_ant(long long limit)
 		
 		}
 
-		wattrset(antscreen, A_STANDOUT);
-		mvwprintw(antscreen, 3, 1, "Generation: %d", current+1);
-		mvwprintw(antscreen, 1, 1, "Speed = %d", speed);
-		mvwprintw(antscreen, 2, 1, "GenSpeed = %d", gen_speed);
-		wattrset(antscreen, A_NORMAL);
-		
+		if (show)
+		{
+			wattrset(antscreen, A_DIM | A_REVERSE | A_BOLD);
+			mvwprintw(antscreen, 1, 1, "Generation: %d", current+1);
+			mvwprintw(antscreen, 2, 1, "Speed (Less is fast): %d", speed);
+			mvwprintw(antscreen, 3, 1, "Generate speed: %d", gen_speed);
+			wattrset(antscreen, A_NORMAL);
+		}
+
 		switch (wgetch(antscreen))
 		{
 			case 'x':
@@ -187,6 +197,9 @@ int run_ant(long long limit)
 				break;
 			case 'c':
 				return 0;
+				break;
+			case 's':
+				show = !show;
 				break;
 			case 'g':
 				if (gen_speed != 1)
